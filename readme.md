@@ -2,7 +2,7 @@
 ## [Useful notes in plaintext](Notes/)
 * Temporarily Empty.
 ## [C/C++ examples](C_C++/)
-* [How to install GULT in Windows without VS](Notes/GLUT%20install.txt)
+* [How to install GULT in Windows without VS](C_C++/GLUT%20install.txt)
 ## [Python examples](Python/)
 * [tkinter examples](Python/tkinter)
     * [Display images in tkinter](Python/tkinter/image.py)
