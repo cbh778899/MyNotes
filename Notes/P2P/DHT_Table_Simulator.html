@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<!-- Author: Bohan Cheng (s3729558@student.rmit.edu.au / cbh778899@outlook.com) -->
+<!-- This file is a DHT Table simulator that needs to fill in nodes, and start node to simulate the process of finding a file in DHT -->
+<html>
+    <head>
+        <title>DHT Table Simulator</title>
+        <script type="text/javascript">
+            let ctx, canvas_elem, log_elem;
+
+            const info = {
+                node_normal_radius: 3,
+                my_node_radius: 5,
+                node_list: [],
+                fingure_table: {},
+                my_node: null,
+                bit: 9,
+                node_color: '#000000',
+                my_node_color: '#ff0000',
+                arrow_color: '#0000ff',
+                arrow_head_fill: true
+            }
+
+            const generated = {
+                node_coords: {},
+                search_for: null,
+                steps: [],
+                step: 0,
+                temp_values: {
+                    my_node: null,
+                    bit: null,
+                    my_node: null
+                }
+            }
+
+            function updateFingureTable() {
+                if(!info.node_list.length) return
+
+                const fingure_entries = [...Array(info.bit).keys()].map(i=>{
+                    return {i: i, i_pow_2: Math.pow(2, i)}
+                })
+
+                info.node_list.forEach(e=>{
+                    info.fingure_table[e] = fingure_entries.map(elem=>{
+                        let target = e + elem.i_pow_2
+                        if(target > generated.max_num) target -= generated.max_num
+
+                        let link, target_cp = target;
+                        for(var i = 0; i < info.node_list.length; i++) {
+                            if(info.node_list[i] >= target_cp) {
+                                link = info.node_list[i];
+                                break;
+                            } else if(i === info.node_list.length - 1) {
+                                i = -1;
+                                target_cp -= generated.max_num;
+                            }
+                        }
+                        return {
+                            ...elem,
+                            target: target,
+                            link: link
+                        }
+                    })
+                })
+            }
+
+            function updateFigure(autoupdate = false) {
+                generated.steps = []
+                generated.step = 0
+                if(!autoupdate) {
+                    checkAvailability()
+                    updateFingureTable()
+                } else {
+                    generated.max_num = Math.pow(2, info.bit)
+                    generated.temp_values.node_list = null
+                    generated.temp_values.bit = null
+                    generated.temp_values.my_node = null
+                }
+                redraw()
+            }
+
+            function redraw() {
+                // clean the whole figure
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                // draw the circle
+                drawMainCircle();
+                // draw dots in nodes_list
+                info.node_list.forEach(e=>{
+                    let coord;
+                    if(e === info.my_node)
+                        coord = drawNode(e, generated.max_num, 
+                            radius=info.my_node_radius, 
+                            color=info.my_node_color)
+                    else
+                        coord = drawNode(e, generated.max_num)
+
+                    generated.node_coords[e] = coord
+                })
+            }
+
+            function newLog(content, level = 'log') {
+                const new_log = document.createElement("div")
+                new_log.innerHTML = content
+
+                if(level === 'err') new_log.className = 'err';
+                log_elem.insertAdjacentElement("beforeend", new_log);
+                new_log.scrollIntoView()
+            }
+
+            function clearLog() {
+                log_elem.innerHTML = '';
+            }
+
+            function drawMainCircle() {
+                ctx.strokeStyle = '#000000';
+                ctx.beginPath();
+                    ctx.arc(
+                        generated.circle_info.x, 
+                        generated.circle_info.y, 
+                        generated.circle_info.radius, 
+                        0, 2*Math.PI);
+                ctx.stroke();
+            }
+
+            function drawNode(with_id, total, radius = info.node_normal_radius, color=info.node_color) {
+                if(with_id === undefined || total === undefined) return
+
+                const angle = (180 - ((with_id/total) * 360))* (Math.PI / 180);
+                const x = ( Math.sin(angle) * generated.circle_info.radius ) + generated.circle_info.x
+                const y = ( Math.cos(angle) * generated.circle_info.radius ) + generated.circle_info.y
+
+                const text_x = ( Math.sin(angle) * (generated.circle_info.radius + 30) ) + generated.circle_info.x - 10
+                const text_y = ( Math.cos(angle) * (generated.circle_info.radius + 30) ) + generated.circle_info.y + 10
+
+                ctx.fillStyle = color
+                ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, 2*Math.PI);
+                ctx.fill();
+                
+                ctx.font = '15px Arial'
+                ctx.fillText(with_id, text_x, text_y);
+
+                return {x: x, y: y}
+            }
+
+            function calcTargetPoint(angle, len, end_point, reverse = false) {
+                let extend_angle = Math.PI / 10
+                if(reverse) extend_angle = -extend_angle
+
+                return {
+                    x: end_point.x - len * Math.cos(angle + extend_angle),
+                    y: end_point.y - len * Math.sin(angle + extend_angle)
+                }
+            }
+
+            function drawArrow(start, end, color=info.arrow_color, 
+                head_len=10, fill_head = info.arrow_head_fill) {
+                
+                ctx.strokeStyle = color;
+                // straight line
+                ctx.beginPath();
+                    ctx.moveTo(start.x, start.y);
+                    ctx.lineTo(end.x, end.y);
+                ctx.stroke();
+
+                // arrow head
+                const angle = Math.atan2(end.y - start.y, end.x - start.x);
+                const p1 = calcTargetPoint(angle, head_len, end)
+                const p2 = calcTargetPoint(angle, head_len, end, true)
+
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(end.x, end.y);
+                    ctx.lineTo(p2.x, p2.y);
+                if(fill_head) ctx.fill();
+                else ctx.stroke();
+            }
+
+            function simulateFindIn(node) {
+                var find = false;
+                const node_index = info.node_list.indexOf(node)
+                if(node_index === 0) { 
+                    if(
+                        (generated.search_for <= generated.max_num && generated.search_for > info.node_list[info.node_list.length - 1]) ||
+                        (generated.search_for >= 0 && generated.search_for <= info.node_list[node_index])
+                    ) {
+                        
+                        find = true;
+                    }
+                } else if(generated.search_for > info.node_list[node_index - 1] && 
+                    generated.search_for <= info.node_list[node_index]) {
+                    
+                    find = true
+                }
+
+                return find;
+            }
+
+            function simulateGoToNext(index) {
+                const table = [...info.fingure_table[index]]
+                    .sort((a,b)=>{return b.target-a.target})
+                const smaller_entries = table.filter(s=>s.target<=generated.search_for)
+                return smaller_entries[0] || table[0]
+            }
+
+            function simulate(next_step = false) {
+                if(!generated.steps.length) {
+                    if(!info.node_list.length) {
+                        newLog("Node list is empty! Simulate Failed.", 'err');
+                        return;
+                    } else if(info.my_node === null) {
+                        newLog("Start node not set or invalid! Simulate Failed.", 'err');
+                        return;
+                    } else if(generated.search_for === null) {
+                        newLog("The file you want to search not set or invalid! Simulate Failed.", 'err');
+                        return;
+                    }
+
+                    var loop = 1, current_node = info.my_node;
+                    while(true) {
+                        if(loop % 2 === 1) {
+                            const found = simulateFindIn(current_node)
+                            generated.steps.push({
+                                describe: 
+                                `Node ${current_node} started search on its managed files.<br>
+                                The file${found ? '' : ' cannot be'} found.${found ? ' Simulate ends.' : ''}
+                                `,
+                                arrow: undefined
+                            })
+                            if(found) break;
+                        } else {
+                            const next = simulateGoToNext(current_node)
+                            generated.steps.push({
+                                describe: 
+                                `Node ${current_node} is finding the next node might contains the file in its fingure table.<br>
+                                Node ${current_node} found target ${next.target} whose link is ${next.link} matches the best.<br>
+                                Node ${current_node} pushes the query to node ${next.link}.
+                                `,
+                                arrow: {
+                                    from: generated.node_coords[current_node],
+                                    to: generated.node_coords[next.link]
+                                }
+                            })
+                            current_node = next.link
+                        }
+                        loop ++
+                    }
+                }
+
+                if(!next_step) {
+                    redraw()
+                    newLog(`Starting simulate.<br>Target file: ${generated.search_for}<br>`)
+                    generated.steps.forEach(e=>{
+                        newLog(e.describe);
+                        if(e.arrow) {
+                            drawArrow(e.arrow.from, e.arrow.to)
+                        }
+                    })
+                    newLog("Simulate ends.")
+                } else {
+                    if(generated.step < generated.steps.length) {
+                        const current_step = generated.steps[generated.step]
+                        if(generated.step === 0) {
+                            redraw()
+                            newLog(`Starting simulate.<br>Target file: ${generated.search_for}<br>`)
+                        }
+                        newLog(current_step.describe);
+                        if(current_step.arrow) {
+                            drawArrow(current_step.arrow.from, current_step.arrow.to)
+                        }
+                        generated.step ++;
+                        if(generated.step === generated.steps.length) {
+                            newLog("Simulate ends.")
+                            generated.step = 0;
+                        }
+                    }
+                }
+            }
+
+            window.onload = () => {
+                function setCanvasSize() {
+                    const canvas_height = parseInt(window.innerHeight * 0.67)
+                    const canvas_width = parseInt(window.innerWidth * 0.55)
+                    canvas.height = canvas_height
+                    canvas.width = canvas_width
+    
+                    generated.circle_info = {
+                        x: parseInt(canvas_width / 2),
+                        y: parseInt(canvas_height / 2),
+                        radius: (canvas_height - 100) / 2
+                    }
+
+                    redraw();
+                }
+    
+                canvas_elem = document.getElementById("canvas")
+                ctx = canvas_elem.getContext("2d")
+                log_elem = document.getElementById("log")
+                window.onresize = setCanvasSize;
+                setCanvasSize()
+            }
+
+            function outputFingureTable() {
+                newLog(`${
+                Object.keys(info.fingure_table).map(e=>{
+                    return `
+                    <div class='fingure-table'>
+                        <nobr>Node: ${e}</nobr>
+                        <table>
+                            <tr>
+                                <th>i</th>
+                                <th>i^2</th>
+                                <th>Target</th>
+                                <th>Link</th>
+                            </tr>
+                            ${info.fingure_table[e].map(entry => {
+                                return `
+                                <tr>
+                                    <th>${entry.i}</th>
+                                    <th>${entry.i_pow_2}</th>
+                                    <th>${entry.target}</th>
+                                    <th>${entry.link}</th>
+                                </tr>
+                                `
+                            }).join('')}
+                        </table>
+                    </div>
+                    `
+                }).join('')
+                }`)
+            }
+
+            function outputDHTSettings() {
+                Object.keys(info).forEach(k=>{
+                    if(k !== 'fingure_table')
+                        newLog(`${k}: ${info[k]}`);
+                })
+            }
+
+            function saveDHT() {
+                localStorage.setItem("DHT", JSON.stringify({
+                    ...info,
+                    fingure_table: JSON.stringify(info.fingure_table)
+                }))
+                newLog('Saved Current DHT into LocalStorage.')
+            }
+
+            function loadDHT() {
+                let DHT = localStorage.getItem("DHT")
+                if(DHT) {
+                    newLog('Load DHT from LocalStorage.')
+                    DHT = JSON.parse(DHT)
+                    Object.keys(DHT).forEach(k => {
+                        info[k] = DHT[k]
+                        switch(k) {
+                            case 'fingure_table':
+                                info[k] = JSON.parse(info[k]); break;
+                            default: newLog(`${k}: ${info[k]}`); break;
+                        }
+                    })
+                    updateFigure(true)
+                    newLog('All updated.');
+                } else {
+                    newLog('Unable to load DHT from LocalStorage!', 'err')
+                }
+            }
+
+            function downloadFigure() {
+                const download_btn = document.createElement('a')
+                download_btn.href = canvas_elem.toDataURL()
+                download_btn.download = 'DHT_Table.png'
+                download_btn.style.display = 'hidden'
+                document.body.appendChild(download_btn)
+                download_btn.click()
+                download_btn.remove()
+            }
+
+            function clearLocalStorage() {
+                localStorage.clear()
+            }
+
+            function checkAvailability() {
+                if(!generated.temp_values.bit && !generated.temp_values.node_list &&
+                   !generated.temp_values.my_node) return
+
+                let bit, node_list, my_node
+                // process bit
+                const bit_process = generated.temp_values.bit
+                if(bit_process && /^\d+$/.test(bit_process)) {
+                    const bit_int = parseInt(bit_process)
+                    if(bit_int < 3) bit = 3;
+                    else if(bit_int > 15) bit = 15;
+                    else bit = bit_int;
+                } else bit = 9;
+
+                generated.max_num = Math.pow(2, bit || info.bit)
+
+                // process node_list
+                if(generated.temp_values.node_list) {
+                    node_list 
+                    = generated.temp_values.node_list.split(",").map(e=>{
+                        if(/^\d+$/.test(e)) {
+                            const this_int = parseInt(e)
+                            if(this_int >= 0 && this_int <= generated.max_num)
+                                return this_int
+                            else return undefined
+                        }
+                        return undefined
+                    }).filter(e => e !== undefined)
+                      .sort((a, b) => {return a-b;})
+                }
+
+                // process my_node
+                const my_node_process = generated.temp_values.my_node
+                if(my_node_process && /^\d+$/.test(my_node_process)) {
+                    const current_node_list = node_list || info.node_list
+                    if(current_node_list.includes(parseInt(my_node_process))) {
+                        my_node = parseInt(my_node_process)
+                    }
+                }
+                // case when node list changed but my_node not changed
+                if(node_list && !my_node && !node_list.includes(info.my_node)) {
+                    info.my_node = null;
+                }
+
+                // assign values
+                info.node_list = node_list || info.node_list
+                info.bit = bit || info.bit
+                info.my_node = my_node !== undefined ? my_node : info.my_node
+            }
+
+            function infoOnInput(event) {
+                const name = event.target.name;
+                let value = event.target.value;
+
+                console.log(name, value)
+                
+                function defaultValue() {
+                    let default_value;
+
+                    switch(name) {
+                        case 'node_list': default_value = []; break;
+                        case 'bit': default_value = 9; break;
+                        case 'my_node': default_value = null; break;
+                        case 'node_color': default_value = '#000000'; break;
+                        case 'my_node_color': default_value = '#ff0000'; break;
+                        case 'arrow_color': default_value = '#0000ff'; break;
+                        case 'node_normal_radius': default_value = 3; break;
+                        case 'arrow_head_fill': default_value = true; break;
+                        default: break;
+                    }
+
+                    return default_value;
+                }
+
+                if(value !== '') {
+                    switch(name) {
+                        case 'node_list':
+                        case 'bit':
+                        case 'my_node':
+                            generated.temp_values[name] = value;
+                            return;
+                        case 'node_color':
+                        case 'my_node_color':
+                        case 'arrow_color':
+                            if(!/^#([a-f0-9]){6}$/.test(value))
+                                value = defaultValue()
+                            break;
+                        case 'node_normal_radius':
+                            if(/^\d+$/.test(value)) {
+                                const radius = parseInt(value)
+                                if(radius < 1) value = 1;
+                                else if(radius > 20) value = 20;
+                                else value = radius;
+                            } else value = defaultValue()
+                        case 'arrow_head_fill':
+                            switch(value.toLowerCase()) {
+                                case 'f': case 'false': case '0':
+                                case 'no': case 'n':
+                                    value = false; break;
+                                case 't': case 'true': case '1':
+                                case 'yes': case 'y': default:
+                                    value = true; break;
+                            } break;
+                        default: break;
+                    } 
+                } else {
+                    value = defaultValue()
+                }
+
+                info[name] = value;
+            }
+
+            function searchOnChange(event) {
+                const name = event.target.name;
+                const value = event.target.value;
+
+                generated.search_for = null;
+                generated.steps = []
+                if(/^\d+$/.test(value)) {
+                    const search_node = parseInt(value)
+                    if(search_node >= 0 && search_node < generated.max_num) {
+                        generated.search_for = search_node
+                    }
+                }
+            }
+        </script>
+        <style type="text/css">
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: rgb(210, 210, 210);
+            }
+
+            canvas {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                border: 1px solid black;
+                background-color: white;
+            }
+
+            .canvas-main .icons {
+                position: absolute;
+                top: calc(67vh - 15px);
+                left: 10px;
+                height: 10px;
+                width: calc(55vw - 10px);
+                text-align: right;
+                display: block;
+                z-index: 2;
+            }
+
+            .canvas-main .icons svg {
+                display: inline-block;
+                margin-left: 5px;
+            }
+            .canvas-main .icons svg:hover {
+                cursor: pointer;
+            }
+
+            .options-block {
+                position: absolute;
+                top: calc(67vh + 20px);
+                left: 10px;
+                display: block;
+            }
+
+            .options-block input,
+            .options-block .btn {
+                display: block;
+                margin: 0.5vh 0px;
+                height: 3.7vh;
+                padding: .6vh .5vw;
+            }
+
+            .options-block .btn {
+                text-align: center;
+                border: 1px solid black;
+                background-color: dodgerblue;
+                color: white;
+                line-height: 3vh;
+                white-space: nowrap;
+            }
+            .options-block .btn:hover {
+                cursor: pointer;
+            }
+
+            .options-block .description {
+                display: block;
+                height: 25px;
+                line-height: 25px;
+                margin-left: 2px;
+                margin-bottom: 10px;
+            }
+
+            .options-block input:focus {
+                outline: none;
+            }
+
+            .options-block .same-row input,
+            .options-block .same-row .btn {
+                display: inline-block;
+                margin-right: .3vw;
+            }
+
+            .options-block .long { width: 40vw; }
+            .options-block .short { width: 5vw; }
+            .options-block .medimum { width: 10vw; }
+
+            #log {
+                width: calc(45vw - 52px);
+                height: calc(100vh - 42px);
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                padding: 10px;
+                border: 1px solid black;
+                background-color: white;
+                overflow-y: auto;
+            }
+            #log div {
+                display: block;
+                margin-bottom: 5px;
+                overflow: hidden;
+            }
+            #log .err {
+                color: red;
+            }
+
+            #log div .fingure-table {
+                float: left;
+                display: block;
+                margin-right: 10px;
+                position: relative;
+                width: unset;
+            }
+            #log div .fingure-table nobr {
+                display: block;
+                margin-bottom: 5px;
+            }
+            #log div .fingure-table table {
+                border-collapse: collapse;
+            }
+            #log div .fingure-table td, th {
+                border: 1px solid gray;
+                text-align: left;
+                padding: 5px;
+            }
+            #log div .fingure-table tr:nth-child(even) {
+                background-color: lightgray;
+            }
+
+        </style>
+    </head>
+    <body>
+        <div class="canvas-main">
+            <div class="icons">
+                <svg 
+                    onclick="outputFingureTable()"
+                    xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-table" viewBox="0 0 16 16">
+                    <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm15 2h-4v3h4V4zm0 4h-4v3h4V8zm0 4h-4v3h3a1 1 0 0 0 1-1v-2zm-5 3v-3H6v3h4zm-5 0v-3H1v2a1 1 0 0 0 1 1h3zm-4-4h4V8H1v3zm0-4h4V4H1v3zm5-3v3h4V4H6zm4 4H6v3h4V8z"/>
+                    <title>Output fingure table to log panel.</title>
+                </svg>
+                <svg onclick="downloadFigure()"
+                    xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-image" viewBox="0 0 16 16">
+                    <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                    <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                    <title>Download current DHT table figure as png.</title>
+                </svg>
+                <svg 
+                    onclick="outputDHTSettings()"
+                    xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-info-circle" viewBox="0 0 16 16">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                    <title>Output current DHT settings to log panel.</title>
+                </svg>
+            </div>
+            <canvas id="canvas" width="800" height="500"></canvas>
+        </div>
+        <div class="options-block">
+            <div class="description">Hover on each block to see description</div>
+            <input oninput="infoOnInput(event)" 
+                name="node_list" class="long"
+                placeholder="Node List" 
+                title="Fill in nodes in the table, split by comma, for example: 0,10,100...">
+            <div class="same-row">
+                <input oninput="infoOnInput(event)" 
+                    name="my_node" class="medimum" type="number" min="0"
+                    placeholder="Start Node"
+                    title="Fill in the number of start node, shoule be one of the nodes from node list above."
+                >
+                <input oninput="infoOnInput(event)" 
+                    name="bit" class="short" type="number" max="15" min="3"
+                    placeholder="Bits" 
+                    title="Fill in n bits using only integer, default is 9, max is 15, min is 3.
+This determins the max number of hash id in the table."
+                >
+                <input oninput="infoOnInput(event)" 
+                    name="node_color" class="medimum"
+                    placeholder="Node Color"
+                    title="Fill in the color of common nodes in hex, default #000000."
+                >
+                <input oninput="infoOnInput(event)" 
+                    name="my_node_color" class="medimum"
+                    placeholder="Start Node Color"
+                    title="Fill in the color of start node in hex, default #ff0000."
+                >
+                <input oninput="infoOnInput(event)" 
+                    name="arrow_color" class="medimum"
+                    placeholder="Arrow Color"
+                    title="Fill in the color of arrows in hex, default #0000ff."
+                >
+            </div>
+            <div class="same-row">
+                <input oninput="infoOnInput(event)" 
+                    name="node_normal_radius" class="medimum" type="number" min="1" max="20"
+                    placeholder="Node Radius"
+                    title="Fill in the radius of a normal node on the table in integer, default is 3, min is 1, max is 20."
+                >
+                <input oninput="infoOnInput(event)" 
+                    name="my_node_radius" class="medimum" type="number" min="1" max="20"
+                    placeholder="Start Node Radius"
+                    title="Fill in the radius of a normal node on the table in integer, default is 5, min is 1, max is 20."
+                >
+                <input oninput="infoOnInput(event)" 
+                    name="arrow_head_fill" class="medimum"
+                    placeholder="Fill Arrow Head"
+                    title="Style of the arrow head, filled or not, default true. Available options (case insensitive):
+True: true / t / 1 / yes / y
+False: false / f / 0 / no / n"
+                >
+                <div class="btn medimum" onclick="updateFigure()" title="Update or reset the DHT graph using filled / current settings.">
+                    Update / Reset
+                </div>
+            </div>
+            <div class="same-row">
+                <div class="btn short" onclick="saveDHT()" title="Save current settings to LocalStorage">Save DHT</div>
+                <div class="btn short" onclick="loadDHT()" title="Load saved settings from LocalStorage">Load DHT</div>
+                <input onchange="searchOnChange(event)" 
+                    name="searching_file" class="short"
+                    placeholder="Search"
+                    title="Fill in the hash id of the file you want to search in integer, and start simulate the process when you want."
+                >
+                <div class="btn short" onclick="simulate()"
+                    title="Start the simulate process and output all steps to log">Start
+                </div>
+                <div class="btn medimum" onclick="simulate(true)"
+                    title="Start the simulate process step by step, click this button to next step.
+Will start over if continue after simulate ends."
+                >
+                    Step by Step
+                </div>
+                <div class="btn medimum" onclick="clearLog()">Clear Log Output</div>
+            </div>
+        </div>
+        <div id="log"></div>
+    </body>
+</html>
