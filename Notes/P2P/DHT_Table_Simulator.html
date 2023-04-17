@@ -104,7 +104,7 @@
                 const new_log = document.createElement("div")
                 new_log.innerHTML = content
 
-                if(level === 'err') new_log.className = 'err';
+                new_log.className = (level === 'log' ? '' : level);
                 log_elem.insertAdjacentElement("beforeend", new_log);
                 new_log.scrollIntoView()
             }
@@ -252,20 +252,20 @@
 
                 if(!next_step) {
                     redraw()
-                    newLog(`Starting simulate.<br>Target file: ${generated.search_for}<br>`)
+                    newLog(`Starting simulate.<br>Target file: ${generated.search_for}<br>`, 'info')
                     generated.steps.forEach(e=>{
                         newLog(e.describe);
                         if(e.arrow) {
                             drawArrow(e.arrow.from, e.arrow.to)
                         }
                     })
-                    newLog("Simulate ends.")
+                    newLog("Simulate ends.", 'info')
                 } else {
                     if(generated.step < generated.steps.length) {
                         const current_step = generated.steps[generated.step]
                         if(generated.step === 0) {
                             redraw()
-                            newLog(`Starting simulate.<br>Target file: ${generated.search_for}<br>`)
+                            newLog(`Starting simulate.<br>Target file: ${generated.search_for}<br>`, 'info')
                         }
                         newLog(current_step.describe);
                         if(current_step.arrow) {
@@ -273,7 +273,7 @@
                         }
                         generated.step ++;
                         if(generated.step === generated.steps.length) {
-                            newLog("Simulate ends.")
+                            newLog("Simulate ends.", 'info')
                             generated.step = 0;
                         }
                     }
@@ -351,7 +351,7 @@
                     After fill necessary parts, simply click Update/Reset button to update the DHT information, 
                     then fill in the file id you want to search and click start/step by step to start the simulation.
                     <br><br>
-                `)
+                `, 'info')
             }
 
             function saveDHT() {
@@ -621,9 +621,9 @@
                 margin-bottom: 5px;
                 overflow: hidden;
             }
-            #log .err {
-                color: red;
-            }
+            #log .err { color: red; }
+            #log .info { color: blue; }
+            #log .clickable:hover { cursor: pointer; }
 
             #log div .fingure-table {
                 float: left;
