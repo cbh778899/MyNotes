@@ -39,6 +39,7 @@
                     return {i: i, i_pow_2: Math.pow(2, i)}
                 })
 
+                info.fingure_table = []
                 info.node_list.forEach(e=>{
                     info.fingure_table[e] = fingure_entries.map(elem=>{
                         let target = e + elem.i_pow_2
