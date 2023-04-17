@@ -29,7 +29,8 @@
                     my_node: null,
                     bit: null,
                     my_node: null
-                }
+                },
+                last_log: undefined
             }
 
             function updateFingureTable() {
@@ -69,13 +70,13 @@
                 generated.step = 0
                 if(!autoupdate) {
                     checkAvailability()
-                    updateFingureTable()
                 } else {
                     generated.max_num = Math.pow(2, info.bit)
                     generated.temp_values.node_list = null
                     generated.temp_values.bit = null
                     generated.temp_values.my_node = null
                 }
+                updateFingureTable()
                 redraw()
             }
 
@@ -100,13 +101,16 @@
                 })
             }
 
-            function newLog(content, level = 'log') {
+            function newLog(content, level = 'log', runable = null) {
                 const new_log = document.createElement("div")
                 new_log.innerHTML = content
 
                 new_log.className = (level === 'log' ? '' : level);
                 log_elem.insertAdjacentElement("beforeend", new_log);
                 new_log.scrollIntoView()
+
+                generated.last_log = new_log
+                if(runable) new_log.onclick = runable
             }
 
             function clearLog() {
@@ -317,9 +321,9 @@
                                 <th>Target</th>
                                 <th>Link</th>
                             </tr>
-                            ${info.fingure_table[e].map(entry => {
+                            ${info.fingure_table[e].map((entry, index) => {
                                 return `
-                                <tr>
+                                <tr${index % 2 === 1 ? ' style="background-color: lightgray;"' : ''}>
                                     <th>${entry.i}</th>
                                     <th>${entry.i_pow_2}</th>
                                     <th>${entry.target}</th>
@@ -332,6 +336,9 @@
                     `
                 }).join('')
                 }`)
+                const last_log = generated.last_log
+                newLog("Click here to download this fingure table as picture.", 
+                'info clickable', ()=>{downloadFingureTable(last_log)})
             }
 
             function outputDHTSettings() {
@@ -357,26 +364,25 @@
             function saveDHT() {
                 localStorage.setItem("DHT", JSON.stringify({
                     ...info,
-                    fingure_table: JSON.stringify(info.fingure_table)
+                    fingure_table: undefined
                 }))
-                newLog('Saved Current DHT into LocalStorage.')
+                newLog('Saved Current DHT into LocalStorage.', 'info')
             }
 
             function loadDHT() {
                 let DHT = localStorage.getItem("DHT")
                 if(DHT) {
-                    newLog('Load DHT from LocalStorage.')
+                    newLog('Load DHT from LocalStorage.', 'info')
                     DHT = JSON.parse(DHT)
                     Object.keys(DHT).forEach(k => {
                         info[k] = DHT[k]
                         switch(k) {
-                            case 'fingure_table':
-                                info[k] = JSON.parse(info[k]); break;
+                            case 'fingure_table': break;
                             default: newLog(`${k}: ${info[k]}`); break;
                         }
                     })
                     updateFigure(true)
-                    newLog('All updated.');
+                    newLog('All updated.', 'info');
                 } else {
                     newLog('Unable to load DHT from LocalStorage!', 'err')
                 }
@@ -390,6 +396,66 @@
                 document.body.appendChild(download_btn)
                 download_btn.click()
                 download_btn.remove()
+            }
+
+            function downloadFingureTable(fingure_table_elem) {
+                // size of current element
+                const width = fingure_table_elem.offsetWidth
+                const height = fingure_table_elem.offsetHeight + 20
+
+                // replace css to inline style
+                const styled_html = 
+                    fingure_table_elem.innerHTML
+                    .replaceAll(/(<div class="fingure-table">)/g, 
+                        "<div style='float: left; display: block; margin-right: 10px; position: relative; width: unset;'>")
+                    .replaceAll(/(<nobr>)/g, '<nobr style="display: block; margin-bottom: 5px;">')
+                    .replaceAll(/(<table>)/g, '<table style="border-collapse: collapse;">')
+                    .replaceAll(/(<tr>)/g, '<tr style="border: 1px solid gray; text-align: left; padding: 5px;">')
+                    .replaceAll(/(<th>)/g, '<th style="border: 1px solid gray; text-align: left; padding: 5px;">')
+                
+                // create svg blob
+                const table = 
+                `<svg xmlns='http://www.w3.org/2000/svg' width="${width}" height="${height}">
+                    <foreignObject width='100%' height='100%'>
+                        <div xmlns='http://www.w3.org/1999/xhtml' style="display: block; margin: 10px; overflow: hidden;">
+                        ${styled_html}
+                        </div>
+                    </foreignObject>
+                </svg>`
+                const table_svg = new Blob([table], {type: "image/svg+xml;charset=utf-8"})
+
+                // use fileReader to generate dataurl of svg blob
+                const file_reader = new FileReader()
+                file_reader.onload = e => {
+                    // create image for canvas to render
+                    const table_svg_img = new Image()
+                    table_svg_img.src = e.target.result
+                    table_svg_img.onload = () => {
+                        // create canvas
+                        const table_canvas = document.createElement("canvas")
+                        table_canvas.width = width
+                        table_canvas.height = height
+    
+                        // draw svg into canvas
+                        const table_canvas_ctx = table_canvas.getContext('2d')
+                        table_canvas_ctx.fillStyle = '#FFFFFF'
+                        table_canvas_ctx.fillRect(0, 0, width, height)
+                        table_canvas_ctx.drawImage(table_svg_img, 0, 0)
+                        
+                        // download png from canvas
+                        const download_btn = document.createElement('a')
+                        download_btn.href = table_canvas.toDataURL('image/png')
+                        download_btn.download = 'Fingure_Table.png'
+                        download_btn.style.display = 'hidden'
+                        document.body.appendChild(download_btn)
+                        download_btn.click()
+
+                        download_btn.remove()
+                        table_canvas.remove()
+                        table_svg_img.remove()
+                    }
+                }
+                file_reader.readAsDataURL(table_svg)
             }
 
             function clearLocalStorage() {
@@ -449,8 +515,6 @@
             function infoOnInput(event) {
                 const name = event.target.name;
                 let value = event.target.value;
-
-                console.log(name, value)
                 
                 function defaultValue() {
                     let default_value;
@@ -643,9 +707,6 @@
                 border: 1px solid gray;
                 text-align: left;
                 padding: 5px;
-            }
-            #log div .fingure-table tr:nth-child(even) {
-                background-color: lightgray;
             }
 
         </style>
