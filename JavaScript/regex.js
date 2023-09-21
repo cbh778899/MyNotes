@@ -1,12 +1,11 @@
 /**
  * A regex presentation for email
  * @param {string} email Email case to be tested
- * @returns true if passed string is an email, otherwise false
+ * @returns Boolean value indicates wether the passed pattern is an email
  */
 function emailRegex(email) {
     return (
-        /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/.test(email) ?
-        true : false
+        /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/.test(email)
     )
 }
 
