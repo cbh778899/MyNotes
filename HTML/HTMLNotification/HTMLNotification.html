@@ -1,0 +1,138 @@
+<!-- 
+    Author Lililele <cbh778899@outlook.com>  
+    run `const showNotification = notification()` first,
+    and access global notification by `showNotification(content, type, duration)`
+-->
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <script type="text/javascript">
+            /**
+             * Create recorders and returns function to show notification
+             * @param {Element} notificationContainer - optional, if not passed, a container will be generated
+             * @returns showNotification - Function to show notification.
+             */
+            function notification(notificationContainer = null) {
+                let notifications = [];
+                let totalHeight = 0;
+
+                if(!notificationContainer) {
+                    notificationContainer = document.createElement('div');
+                    notificationContainer.id = 'notification-container';
+                    document.body.appendChild(notificationContainer);
+                }
+
+                function updateTransform(isRemoving = false, removeNode = null) {
+                    const transform = `translateY(calc(0px - (var(--notification-margin) * ${notifications.length}) - ${totalHeight}px))`;
+                    if(!isRemoving) {
+                        notifications.forEach(e=>e.style.transform = transform)
+                    } else {
+                        const all_notifications = Array.from(removeNode.parentNode.children);
+                        const notifs_after = all_notifications.slice(all_notifications.indexOf(removeNode))
+
+                        notifs_after.forEach(e=>{
+                            e.style.transitionDuration = '0s';
+                        })
+                        notifications.forEach(e=>e.style.transform = transform)
+                        notificationContainer.clientHeight;
+                        notifs_after.forEach(e=>{
+                            e.style.transitionDuration = '.5s';
+                        })
+                    }
+                }
+
+                async function removeElem(elem, elemHeight) {
+                    if(notifications.filter(e=>e===elem).length) {
+                        const hidePosition = notificationContainer.clientHeight - elem.getBoundingClientRect().top + 20;
+                        const transformStr = elem.style.transform
+                        new Animation(new KeyframeEffect(elem, [
+                            {'transform': transformStr},
+                            {'transform': `${transformStr.slice(0, -2)} - 10px))`},
+                            {'transform': `${transformStr.slice(0, -2)} - 10px + ${hidePosition}px))`},
+                        ], { duration: 500, fill: 'forwards' }), document.timeline).play()
+                        await new Promise(s=>setTimeout(s, 500));
+                        notifications = notifications.filter(e=>e!==elem);
+                        totalHeight = Math.max(totalHeight - elemHeight, 0);
+                        updateTransform(true, elem);
+                        elem.remove();
+                    }
+                }
+
+                /**
+                 * Display a notification
+                 * @param {String} content - Content to show in notification
+                 * @param {String} type - Default 'info', available 'info', 'success', 'err' or 'error', 'warn' or'warning'.
+                 * @param {Number} time - Time in millisecond that notification last, default 5000
+                 */
+                return function showNotification(content, type = 'info', time = 5000) {
+                    const elem = document.createElement('div');
+                    elem.className = `notification ${type} clickable`;
+                    elem.textContent = content;
+                    notificationContainer.appendChild(elem);
+
+                    const height = elem.clientHeight;
+                    totalHeight += height;
+                    notifications.push(elem);
+                    updateTransform();
+
+                    elem.onclick = () => removeElem(elem, height)
+                    setTimeout(()=>removeElem(elem, height), time)
+                }
+            }
+        </script>
+        <style type="text/css">
+            #notification-container {
+                width: 100vw;
+                height: 100dvh;
+                position: fixed;
+                top: 0;
+                left: 0;
+                pointer-events: none;
+                z-index: 100;
+                --notification-margin: 20px;
+            }
+
+            #notification-container .notification {
+                position: relative;
+                top: 100%;
+                transition-duration: .5s;
+                margin: auto;
+                margin-bottom: var(--notification-margin);
+                width: 20%;
+                height: fit-content;
+                padding: 20px;
+                color: white;
+                z-index: 5;
+                pointer-events: initial;
+                border-radius: 7px;
+                font-size: 15px;
+                text-align: center;
+            }
+
+            #notification-container, #notification-container .notification {
+                display: block;
+                box-sizing: border-box;
+            }
+
+            #notification-container .info { background-color: dodgerblue; }
+            #notification-container .success { background-color: limegreen; }
+
+            #notification-container .err,
+            #notification-container .error { background-color: red; }
+
+            #notification-container .warn,
+            #notification-container .warning { background-color: gold; text-shadow: 1px 1px 2px black; }
+
+            @media screen and (max-width: 1023px) {
+                #notification-container .notification {
+                    width: 50%;
+                    font-size: 40px;
+                    border-radius: 15px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+    </body>
+</html>
