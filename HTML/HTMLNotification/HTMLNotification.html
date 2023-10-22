@@ -2,6 +2,7 @@
     Author Lililele <cbh778899@outlook.com>  
     run `const showNotification = notification()` first,
     and access global notification by `showNotification(content, type, duration)`
+    copy the first script tag and css tag to your project and start use!
 -->
 <!DOCTYPE html>
 
@@ -109,6 +110,9 @@
                 font-size: 15px;
                 text-align: center;
             }
+            #notification-container .notification:hover {
+                cursor: pointer;
+            }
 
             #notification-container, #notification-container .notification {
                 display: block;
@@ -122,7 +126,7 @@
             #notification-container .error { background-color: red; }
 
             #notification-container .warn,
-            #notification-container .warning { background-color: gold; text-shadow: 1px 1px 2px black; }
+            #notification-container .warning { background-color: gold; color: black;}
 
             @media screen and (max-width: 1023px) {
                 #notification-container .notification {
@@ -132,7 +136,21 @@
                 }
             }
         </style>
+        <script>
+            let showNotification;
+            window.onload = () => {
+                showNotification = notification();
+            }
+
+            function displayNotifications() {
+                showNotification('This is an info')
+                showNotification('This is an error', 'error')
+                showNotification('This is a warn', 'warn')
+                showNotification('This is a success', 'success')
+            }
+        </script>
     </head>
     <body>
+        <button onclick="displayNotifications()">click me</button>
     </body>
 </html>
