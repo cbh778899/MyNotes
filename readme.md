@@ -12,6 +12,8 @@
 * [Helpful ideas of JavaScript regex](JavaScript/regex.js)
     * Regex on validate email pattern - ` emailRegex() `
     * Regex on validate website url pattern - ` urlRegex() `
+* [Javascript String Related Useful Functions](JavaScript/string.js)
+    * Generate a random string contains self-defined patterns - `generateRandomString()`
 ## [HTML+JavaScript+CSS examples](HTML/)
 * [Easily and clearly show notifications globally](HTML/HTMLNotification/HTMLNotification.html)
 ## [System tutorials](System/)
