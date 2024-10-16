@@ -17,7 +17,7 @@
 ## [HTML+JavaScript+CSS examples](HTML/)
 * [Easily and clearly show notifications globally](HTML/HTMLNotification/HTMLNotification.html)
 ## [System tutorials](System/)
-* [Way of boot systems and fix EFI of both Linux and Windows](System/boot.txt)
+* [Way of boot systems and fix EFI of both Linux and Windows](System/boot.md)
 ## [My other projects](https://github.com/cbh778899/)
 * [A nice browser homepage](https://github.com/cbh778899/HomePage2)
 * [Files / plaintext transmission in local network](https://github.com/cbh778899/chatbox)
